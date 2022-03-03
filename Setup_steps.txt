@@ -1,0 +1,111 @@
+https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+
+https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/
+
+
+
+containerd
+Kubelet
+kubeadm
+kubectl
+
+
+ContainerD:(Every Node)
+==========
+Ref: https://kubernetes.io/docs/setup/production-environment/container-runtimes/#containerd
+   
+1) swapoff -a
+2) sudo modprobe overlay
+3) sudo modprobe br_netfilter
+4) cat <<EOF | sudo tee /etc/modules-load.d/containerd.conf
+overlay
+br_netfilter
+EOF
+
+
+5) cat <<EOF | sudo tee /etc/sysctl.d/99-kubernetes-cri.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.ipv4.ip_forward                 = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+EOF
+
+
+6) sudo sysctl --system
+
+7) apt-get update; apt-get install -y containerd 
+8)sudo mkdir -p /etc/containerd
+9) containerd config default | sudo tee /etc/containerd/config.toml
+10) sudo systemctl restart containerd
+11) Add Below Line at end of  in /etc/containerd/config.toml : --> If Already Exists Change "SystemdCgroup" = true
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc] :
+	
+	# Add these two lines, indentation Matters
+	  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+         SystemdCgroup = true
+12) sudo systemctl restart containerd
+==============================================================================
+
+II) Install Kubelet Kubeadm Kubectl:
+   Ref :  Installing kubeadm, kubelet and kubectl in below link
+   https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+
+a) sudo apt-get update
+b) sudo apt-get install -y apt-transport-https ca-certificates curl
+c) sudo curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
+d) echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+e) sudo apt-get update
+   sudo apt-cache policy kubelet | head -n 20
+f) Select Version ex:1.20.1-00
+   sudo apt-get install -y kubelet=1.20.1-00 kubeadm=1.20.1-00 kubectl=1.20.1-00
+g) sudo apt-mark hold kubelet kubeadm kubectl containerd   
+h) systemctl status kubelet.service
+i) systemctl status containerd.service
+j) systemctl enable kubelet.service
+k) systemctl enable containerd.service
+
+================================================================
+III) BootStarp Cluster:
+   a) Download CNI Plugin Calico:(Ref:
+         https://docs.projectcalico.org/getting-started/kubernetes/self-managed-onprem/onpremises)
+    
+	
+	      curl https://docs.projectcalico.org/manifests/calico.yaml -O
+		  
+b) kubeadm config print init-defaults | tee ClusterCongiguaration.yaml
+          vim ClusterCongiguaration.yaml	  
+c) Change Below Parameter value in "ClusterCongiguaration.yaml"
+
+"advertiseAddress" Value to ServerIP
+"criSocket"   Value to  /run/containerd/containerd.sock
+"kubernetesVersion" value same need to match with kubelet version
+
+
+d) Append Below Line to End of the File (Configuring the kubelet cgroup driver)
+   (Ref:https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/configure-cgroup-driver/)
+   
+
+---
+kind: KubeletConfiguration
+apiVersion: kubelet.config.k8s.io/v1beta1
+cgroupDriver: systemd  
+
+   
+   
+e) kubeadm init --config=ClusterCongiguaration.yaml \
+--cri-socket /run/containerd/containerd.sock   
+
+
+
+
+
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+
+
+
+kubectl apply -f calico.yaml
+
+kubeadm join 172.31.46.9:6443 --token abcdef.0123456789abcdef \
+    --discovery-token-ca-cert-hash sha256:c8e6e810fb02c1fceed794ade68da0e2cccdc9520b388adc22e63f526f25f6dc
