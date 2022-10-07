@@ -103,9 +103,7 @@ sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
 
-
-
 kubectl apply -f calico.yaml
 
-kubeadm join 172.31.46.9:6443 --token abcdef.0123456789abcdef \
-    --discovery-token-ca-cert-hash sha256:c8e6e810fb02c1fceed794ade68da0e2cccdc9520b388adc22e63f526f25f6dc
+kubeadm join 172.31.24.225:6443 --token abcdef.0123456789abcdef \
+    --discovery-token-ca-cert-hash sha256:50ef9222b3c88e2b1bba331f6c5677e70bf06e89ffe70810e8e68756bf4e26f0
